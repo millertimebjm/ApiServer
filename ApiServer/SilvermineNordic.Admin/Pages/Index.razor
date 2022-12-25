@@ -248,7 +248,7 @@
     private string HumidityLastWeatherReadingString;
     private string InTheZoneString;
     private string ZoneChangeForecastString;
-    private List<Threshold> thresholdBind;
+    private IEnumerable<Threshold> thresholdBind;
     private IEnumerable<WeatherModel> weatherForecastBind;
     private string LoadingString;
     private DateTime lastRefresh = DateTime.UtcNow;
@@ -272,49 +272,39 @@
         LoadingString = LoadingStringTemp;
         try
         {
-            var sensorReading = await Http.GetFromJsonAsync<IEnumerable<SensorReading>>(ApiUrl + "/sensorreading/?count=20");
-            var thresholds = await Http.GetFromJsonAsync<List<Threshold>>(ApiUrl + "/thresholds");
-            var weatherReading = await Http.GetFromJsonAsync<IEnumerable<SensorReading>>(ApiUrl + "/weatherreading/?count=20");
+            var weatherSensorThresholdCombinedModel = await Http.GetFromJsonAsync<WeatherSensorThresholdCombinedModel>(ApiUrl + "/weathersensorthreshold/?count=20");
             var zoneChangeForecast = await Http.GetFromJsonAsync<DateTime?>(ApiUrl + "/weatherforecast/nextzonechange");
             var weatherForecast = await Http.GetFromJsonAsync<IEnumerable<WeatherModel>>(ApiUrl + "/weatherforecast");
-            //await Task.WhenAll(sensorReadingTask, thresholdsTask, weatherReadingTask, zoneChangeForecastTask);
-
-            if (sensorReading != null)
-            {
-                TimeSinceLastSensorReadingString = "(" + ToHumanReadableString(DateTime.UtcNow - sensorReading.First().DateTimestampUtc) + ")";
-                TemperatureLastSensorReadingString = CelciusToFahr(sensorReading.First().TemperatureInCelcius).ToString() + "°F";
-                HumidityLastSensorReadingString = decimal.Round(sensorReading.First().Humidity, 1).ToString() + "%";
-
-            }
-            if (weatherReading != null)
-            {
-                TimeSinceLastWeatherReadingString = "(" + ToHumanReadableString(DateTime.UtcNow - weatherReading.First().DateTimestampUtc) + ")";
-                TemperatureLastWeatherReadingString = CelciusToFahr(weatherReading.First().TemperatureInCelcius).ToString() + "°F";
-                HumidityLastWeatherReadingString = decimal.Round(weatherReading.First().Humidity, 1).ToString() + "%";
-            }
-            if (thresholds != null)
-            {
-                thresholdBind = thresholds;
-            }
-
 
             var inTheZone = false;
-            if (thresholds != null && sensorReading != null)
+            if (weatherSensorThresholdCombinedModel != null)
             {
-                sensorReadingBind = sensorReading;
-                if (sensorReading.First().DateTimestampUtc > DateTime.UtcNow.AddMinutes(-10))
+                var sensorReadings = weatherSensorThresholdCombinedModel.SensorReadings;
+                TimeSinceLastSensorReadingString = "(" + ToHumanReadableString(DateTime.UtcNow - sensorReadings.First().DateTimestampUtc) + ")";
+                TemperatureLastSensorReadingString = CelciusToFahr(sensorReadings.First().TemperatureInCelcius).ToString() + "°F";
+                HumidityLastSensorReadingString = decimal.Round(sensorReadings.First().Humidity, 1).ToString() + "%";
+
+                var weatherReadings = weatherSensorThresholdCombinedModel.WeatherReadings;
+                TimeSinceLastWeatherReadingString = "(" + ToHumanReadableString(DateTime.UtcNow - weatherReadings.First().DateTimestampUtc) + ")";
+                TemperatureLastWeatherReadingString = CelciusToFahr(weatherReadings.First().TemperatureInCelcius).ToString() + "°F";
+                HumidityLastWeatherReadingString = decimal.Round(weatherReadings.First().Humidity, 1).ToString() + "%";
+
+                var thresholds = weatherSensorThresholdCombinedModel.Thresholds;
+                thresholdBind = thresholds;
+
+                sensorReadingBind = sensorReadings;
+                if (sensorReadings.First().DateTimestampUtc > DateTime.UtcNow.AddMinutes(-10))
                 {
-                    inTheZone = InTheZoneService.IsInZone(thresholds, sensorReading.First().TemperatureInCelcius, sensorReading.First().Humidity);
+                    inTheZone = InTheZoneService.IsInZone(thresholds, sensorReadings.First().TemperatureInCelcius, sensorReadings.First().Humidity);
+                }
+
+                weatherReadingBind = weatherReadings;
+                if (weatherReadings != null && weatherReadings.First().DateTimestampUtc > DateTime.UtcNow.AddMinutes(-10))
+                {
+                    inTheZone = InTheZoneService.IsInZone(thresholds, weatherReadings.First().TemperatureInCelcius, weatherReadings.First().Humidity);
                 }
             }
-            if (thresholds != null && weatherReading != null)
-            {
-                weatherReadingBind = weatherReading;
-                if (weatherReading != null && weatherReading.First().DateTimestampUtc > DateTime.UtcNow.AddMinutes(-10))
-                {
-                    inTheZone = InTheZoneService.IsInZone(thresholds, weatherReading.First().TemperatureInCelcius, weatherReading.First().Humidity);
-                }
-            }
+
             InTheZoneString = inTheZone ? "Yes" : "No";
             if (zoneChangeForecast != null)
             {

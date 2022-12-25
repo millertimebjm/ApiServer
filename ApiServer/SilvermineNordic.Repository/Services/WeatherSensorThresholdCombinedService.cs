@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Dapper;
 using System.Data.SqlClient;
+using System.Linq;
 
 namespace SilvermineNordic.Repository.Services
 {
     public class WeatherSensorThresholdCombinedService : IRepositoryWeatherSensorThresholdCombined
     {
-        private readonly SilvermineNordicConfigurationService _configurationService;
-        public WeatherSensorThresholdCombinedService(SilvermineNordicConfigurationService configurationService)
+        private readonly ISilvermineNordicConfiguration _configurationService;
+        public WeatherSensorThresholdCombinedService(ISilvermineNordicConfiguration configurationService)
         {
             _configurationService = configurationService;
         }
@@ -17,31 +18,24 @@ namespace SilvermineNordic.Repository.Services
         public async Task<WeatherSensorThresholdCombinedModel> GetWeatherSensorThresholdCombined(int count)
         {
             var sql = $@"
-SELECT TOP 10 *
+SELECT TOP {count} *
 FROM SensorReading
-WHERE Type = {SensorReadingTypeEnum.Sensor.ToString()}
-ORDER BY Id DESC
-UNION
-SELECT TOP 10 *
+WHERE Type = '{SensorReadingTypeEnum.Sensor}'
+ORDER BY Id DESC;
+SELECT TOP {count} *
 FROM SensorReading
-WHERE Type = {SensorReadingTypeEnum.Weather.ToString()}
+WHERE Type = '{SensorReadingTypeEnum.Weather}'
 ORDER BY Id DESC;
 SELECT *
 FROM SensorThreshold;
             ";
-            using (var db = new SqlConnection(_connectionString))
+            using (var db = new SqlConnection(_configurationService.GetSqlConnectionString()))
             {
                 var model = new WeatherSensorThresholdCombinedModel();
-                using (var multi = db.QueryMultiple<WeatherSensorThresholdCombinedModel>(sql))
-                {
-                    model.SensorReadings = multi.Read<SensorReading>()
-                        .Where(_ => _.Type == SensorReadingTypeEnum.Sensor.ToString())
-                        .ToList();
-                    model.WeatherReadings = multi.Read<SensorReading>()
-                        .Where(_ => _.Type == SensorReadingTypeEnum.Weather.ToString())
-                        .ToList();
-                    model.Thresholds = multi.Read<Threshold>().ToList();
-                }
+                var query = await SqlMapper.QueryMultipleAsync(db, sql);
+                model.SensorReadings = query.Read<SensorReading>().ToList();
+                model.WeatherReadings = query.Read<SensorReading>().ToList();
+                model.Thresholds = query.Read<Threshold>().ToList();
                 return model;
             }
         }

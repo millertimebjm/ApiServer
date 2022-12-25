@@ -39,7 +39,7 @@ builder.Services.AddScoped<IRepositoryUser, EntityFrameworkUserService>();
 builder.Services.AddScoped<IRepositoryUserOtp, EntityFrameworkUserOtpService>();
 builder.Services.AddScoped<IEmailService, AzureEmailService>();
 builder.Services.AddScoped<IRepositoryUserOtp, EntityFrameworkUserOtpService>();
-builder.Services.AddScoped<IRepositoryWeatherSensorThresholdCombined>();
+builder.Services.AddScoped<IRepositoryWeatherSensorThresholdCombined, WeatherSensorThresholdCombinedService>();
 
 var sensorReadingService = builder.Services.BuildServiceProvider().GetService<IRepositorySensorReading>();
 var sensorThresholdService = builder.Services.BuildServiceProvider().GetService<IRepositoryThreshold>();
@@ -47,6 +47,7 @@ var weatherForecastService = builder.Services.BuildServiceProvider().GetService<
 var userService = builder.Services.BuildServiceProvider().GetService<IRepositoryUser>();
 var userOtpService = builder.Services.BuildServiceProvider().GetService<IRepositoryUserOtp>();
 var emailService = builder.Services.BuildServiceProvider().GetService<IEmailService>();
+var weatherSensorThresholdCombinedService = builder.Services.BuildServiceProvider().GetService<IRepositoryWeatherSensorThresholdCombined>();
 
 builder.Services.AddCors(o => o.AddPolicy("NUXT", builder =>
 {
@@ -95,7 +96,7 @@ app.MapGet("thresholds", async () =>
 
 app.MapGet("weathersensorthreshold", async (int count) =>
 {
-    var weatherSensorThresholdCombinedModel = await weatherSensorThresholdCombinedService.GetWeatherSensorThreshold(count);
+    var weatherSensorThresholdCombinedModel = await weatherSensorThresholdCombinedService.GetWeatherSensorThresholdCombined(count);
     return weatherSensorThresholdCombinedModel;
 });
 
