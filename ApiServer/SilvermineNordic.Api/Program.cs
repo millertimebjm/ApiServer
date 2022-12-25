@@ -39,6 +39,7 @@ builder.Services.AddScoped<IRepositoryUser, EntityFrameworkUserService>();
 builder.Services.AddScoped<IRepositoryUserOtp, EntityFrameworkUserOtpService>();
 builder.Services.AddScoped<IEmailService, AzureEmailService>();
 builder.Services.AddScoped<IRepositoryUserOtp, EntityFrameworkUserOtpService>();
+builder.Services.AddScoped<IRepositoryWeatherSensorThresholdCombined>();
 
 var sensorReadingService = builder.Services.BuildServiceProvider().GetService<IRepositorySensorReading>();
 var sensorThresholdService = builder.Services.BuildServiceProvider().GetService<IRepositoryThreshold>();
@@ -67,21 +68,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-//app.MapGet("/weatherforecast", () =>
-//{
-//    var forecast = Enumerable.Range(1, 5).Select(index =>
-//        new WeatherForecast
-//        (
-//            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-//            Random.Shared.Next(-20, 55),
-//            summaries[Random.Shared.Next(summaries.Length)]
-//        ))
-//        .ToArray();
-//    return forecast;
-//})
-//.WithName("GetWeatherForecast")
-//.WithOpenApi();
-
 app.MapGet("/sensorreading/", async (int count) =>
 {
     count = count > 100 ? 100 : count;
@@ -101,6 +87,18 @@ app.MapGet("/weatherforecast", async () =>
     return await weatherForecastService.GetWeatherForecast();
 }).WithName("GetWeatherForecast");
 
+app.MapGet("thresholds", async () =>
+{
+    var thresholds = await sensorThresholdService.GetThresholds();
+    return thresholds;
+});
+
+app.MapGet("weathersensorthreshold", async (int count) =>
+{
+    var weatherSensorThresholdCombinedModel = await weatherSensorThresholdCombinedService.GetWeatherSensorThreshold(count);
+    return weatherSensorThresholdCombinedModel;
+});
+
 app.MapGet("/weatherforecast/nextzonechange", async () =>
 {
     var weatherForecastTask = await weatherForecastService.GetWeatherForecast();
@@ -114,12 +112,6 @@ app.MapGet("/weatherforecast/nextzonechange", async () =>
     var nextZoneChangeDateTimeUtc = InTheZoneService.GetNextZoneChange(weatherForecastTask, thresholdTask, InTheZoneService.IsInZone(thresholdTask, lastSensorReading.TemperatureInCelcius, lastSensorReading.Humidity) || InTheZoneService.IsInZone(thresholdTask, lastWeatherReading.TemperatureInCelcius, lastWeatherReading.Humidity));
     return nextZoneChangeDateTimeUtc;
 }).WithName("GetNextZoneChange");
-
-app.MapGet("thresholds", async () =>
-{
-    var thresholds = await sensorThresholdService.GetThresholds();
-    return thresholds;
-});
 
 app.MapPost("loginattempt", async ([Microsoft.AspNetCore.Mvc.FromBody] string login) =>
 {
