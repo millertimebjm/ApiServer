@@ -5,5 +5,4 @@ sudo docker images
 sudo docker rmi <image_id>
 
 sudo dotnet publish --os linux --arch x64 /t:PublishContainer -c Release
-sudo docker images 
-sudo docker run -d -p 9080:9080 --restart=always <image_id>
+sudo docker run -d -p 9080:9080 --restart=always silverminenordic-api:1.0.0
