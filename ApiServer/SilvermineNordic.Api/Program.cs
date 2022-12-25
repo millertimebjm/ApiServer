@@ -49,16 +49,21 @@ var userOtpService = builder.Services.BuildServiceProvider().GetService<IReposit
 var emailService = builder.Services.BuildServiceProvider().GetService<IEmailService>();
 var weatherSensorThresholdCombinedService = builder.Services.BuildServiceProvider().GetService<IRepositoryWeatherSensorThresholdCombined>();
 
-builder.Services.AddCors(o => o.AddPolicy("NUXT", builder =>
+var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
+builder.Services.AddCors(options =>
 {
-    builder.AllowAnyOrigin()
-           .AllowAnyMethod()
-           .AllowAnyHeader();
-}));
+    options.AddPolicy(name: MyAllowSpecificOrigins,
+                      policy =>
+                      {
+                          policy.WithOrigins("https://snowmaking.silverminenordic.com",
+                                             "https://snowmakingdev.silverminenordic.com",
+                                             "https://miller.silverminenordic.com");
+                      });
+});
 
 var app = builder.Build();
 
-app.UseCors("NUXT");
+app.UseCors(MyAllowSpecificOrigins);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -71,14 +76,14 @@ if (app.Environment.IsDevelopment())
 
 app.MapGet("/sensorreading/", async (int count) =>
 {
-    count = count > 100 ? 100 : count;
+    count = count > 50 ? 50 : count;
     count = count < 1 ? 1 : count;
     return await sensorReadingService.GetLastNReadingAsync(SensorReadingTypeEnum.Sensor, count);
 }).WithName("GetLastSensorReading");
 
 app.MapGet("/weatherreading/", async (int count) =>
 {
-    count = count > 100 ? 100 : count;
+    count = count > 50 ? 50 : count;
     count = count < 1 ? 1 : count;
     return await sensorReadingService.GetLastNReadingAsync(SensorReadingTypeEnum.Weather, count);
 }).WithName("GetLastWeatherReading");
@@ -96,6 +101,8 @@ app.MapGet("thresholds", async () =>
 
 app.MapGet("weathersensorthreshold", async (int count) =>
 {
+    count = count > 50 ? 50 : count;
+    count = count < 1 ? 1 : count;
     var weatherSensorThresholdCombinedModel = await weatherSensorThresholdCombinedService.GetWeatherSensorThresholdCombined(count);
     return weatherSensorThresholdCombinedModel;
 });
