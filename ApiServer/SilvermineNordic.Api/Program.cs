@@ -49,21 +49,19 @@ var userOtpService = builder.Services.BuildServiceProvider().GetService<IReposit
 var emailService = builder.Services.BuildServiceProvider().GetService<IEmailService>();
 var weatherSensorThresholdCombinedService = builder.Services.BuildServiceProvider().GetService<IRepositoryWeatherSensorThresholdCombined>();
 
-var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(name: MyAllowSpecificOrigins,
+    options.AddDefaultPolicy(
                       policy =>
                       {
                           policy.WithOrigins("https://snowmaking.silverminenordic.com",
-                                             "https://snowmakingdev.silverminenordic.com",
-                                             "https://miller.silverminenordic.com");
+                                             "https://snowmakingdev.silverminenordic.com");
                       });
 });
 
 var app = builder.Build();
 
-app.UseCors(MyAllowSpecificOrigins);
+app.UseCors();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
