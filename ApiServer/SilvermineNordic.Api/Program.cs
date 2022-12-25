@@ -2,6 +2,7 @@ using SilvermineNordic.Repository;
 using SilvermineNordic.Models;
 using SilvermineNordic.Repository.Services;
 using SilvermineNordic.Common;
+using Microsoft.Extensions.Caching.Memory;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +11,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient();
+builder.Services.AddMemoryCache();
 
 var config = new ConfigurationBuilder()
     .SetBasePath(Directory.GetCurrentDirectory())
@@ -48,6 +50,7 @@ var userService = builder.Services.BuildServiceProvider().GetService<IRepository
 var userOtpService = builder.Services.BuildServiceProvider().GetService<IRepositoryUserOtp>();
 var emailService = builder.Services.BuildServiceProvider().GetService<IEmailService>();
 var weatherSensorThresholdCombinedService = builder.Services.BuildServiceProvider().GetService<IRepositoryWeatherSensorThresholdCombined>();
+var memoryCacheService = builder.Services.BuildServiceProvider().GetRequiredService<IMemoryCache>();
 
 builder.Services.AddCors(options =>
 {
@@ -88,7 +91,13 @@ app.MapGet("/weatherreading/", async (int count) =>
 
 app.MapGet("/weatherforecast", async () =>
 {
-    return await weatherForecastService.GetWeatherForecast();
+    var weatherForecast = memoryCacheService.Get<IEnumerable<WeatherModel>>("WeatherForecast");
+    if (weatherForecast == null)
+    {
+        weatherForecast = await weatherForecastService.GetWeatherForecast();
+        memoryCacheService.Set("WeatherForecast", weatherForecast, DateTimeOffset.UtcNow.AddMinutes(14));
+    }
+    return weatherForecast;
 }).WithName("GetWeatherForecast");
 
 app.MapGet("thresholds", async () =>
@@ -107,15 +116,22 @@ app.MapGet("weathersensorthreshold", async (int count) =>
 
 app.MapGet("/weatherforecast/nextzonechange", async () =>
 {
-    var weatherForecastTask = await weatherForecastService.GetWeatherForecast();
-    var thresholdTask = await sensorThresholdService.GetThresholds();
-    var lastSensorReadingTask = await sensorReadingService.GetLastNReadingAsync(SensorReadingTypeEnum.Sensor, 1);
-    var lastWeatherReadingTask = await sensorReadingService.GetLastNReadingAsync(SensorReadingTypeEnum.Weather, 1);
-    //await Task.WhenAll(weatherForecastTask, thresholdTask, lastSensorReadingTask, lastWeatherReadingTask);
+    var weatherForecast = memoryCacheService.Get<IEnumerable<WeatherModel>>("WeatherForecast");
+    if (weatherForecast == null)
+    {
+        weatherForecast = await weatherForecastService.GetWeatherForecast();
+        memoryCacheService.Set("WeatherForecast", weatherForecast, DateTimeOffset.UtcNow.AddMinutes(14));
+    }
+    var weatherSensorThresholdCombinedModel = await weatherSensorThresholdCombinedService.GetWeatherSensorThresholdCombined(1);
+    var thresholdTask = weatherSensorThresholdCombinedModel.Thresholds;
 
-    var lastSensorReading = lastSensorReadingTask.Single();
-    var lastWeatherReading = lastWeatherReadingTask.Single();
-    var nextZoneChangeDateTimeUtc = InTheZoneService.GetNextZoneChange(weatherForecastTask, thresholdTask, InTheZoneService.IsInZone(thresholdTask, lastSensorReading.TemperatureInCelcius, lastSensorReading.Humidity) || InTheZoneService.IsInZone(thresholdTask, lastWeatherReading.TemperatureInCelcius, lastWeatherReading.Humidity));
+    var lastSensorReading = weatherSensorThresholdCombinedModel.SensorReadings.Single();
+    var lastWeatherReading = weatherSensorThresholdCombinedModel.WeatherReadings.Single();
+    var nextZoneChangeDateTimeUtc = InTheZoneService.GetNextZoneChange(
+        weatherForecast, 
+        thresholdTask, 
+        InTheZoneService.IsInZone(thresholdTask, lastSensorReading.TemperatureInCelcius, lastSensorReading.Humidity) 
+            || InTheZoneService.IsInZone(thresholdTask, lastWeatherReading.TemperatureInCelcius, lastWeatherReading.Humidity));
     return nextZoneChangeDateTimeUtc;
 }).WithName("GetNextZoneChange");
 
