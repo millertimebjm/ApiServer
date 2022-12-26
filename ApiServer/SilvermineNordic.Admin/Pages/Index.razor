@@ -121,7 +121,7 @@
                     @foreach (var reading in sensorReadingBind)
                     {
                         <tr>
-                            <td scope="row">@(sensorCurrentDate != reading.DateTimestampUtc.Date ? reading.DateTimestampUtc.ToLocalTime().Date.ToShortDateString() : "")</td>
+                            <td scope="row">@(sensorCurrentDate != reading.DateTimestampUtc.ToLocalTime().Date ? reading.DateTimestampUtc.ToLocalTime().Date.ToShortDateString() : "")</td>
                             <td>@reading.DateTimestampUtc.ToLocalTime().ToShortTimeString()</td>
                             <td>@(CelciusToFahr(reading.TemperatureInCelcius).ToString() + "°F")</td>
                             <td>@(reading.Humidity.ToString("N0"))%</td>
