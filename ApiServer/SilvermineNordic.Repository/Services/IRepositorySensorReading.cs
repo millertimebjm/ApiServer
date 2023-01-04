@@ -8,6 +8,7 @@ namespace SilvermineNordic.Repository.Services
     {
         public Task<SensorReading> AddSensorReadingAsync(SensorReading sensorReading);
         public Task<IEnumerable<SensorReading>> GetLastNReadingAsync(SensorReadingTypeEnum type, int count);
+        public Task SeedData();
     }
 }
 

@@ -8,5 +8,6 @@ namespace SilvermineNordic.Repository.Services
     {
         public Task<Threshold> UpdateThreshold(Threshold threshold);
         public Task<IEnumerable<Threshold>> GetThresholds();
+        public Task SeedData();
     }
 }

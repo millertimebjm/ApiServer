@@ -24,5 +24,18 @@ namespace SilvermineNordic.Repository.Services
             await _dbContext.SaveChangesAsync();
             return threshold;
         }
+
+        public async Task SeedData()
+        {
+            await _dbContext.Thresholds.AddAsync(new Threshold()
+            {
+                Id = 1,
+                TemperatureInCelciusLowThreshold = -10m,
+                TemperatureInCelciusHighThreshold = -8m,
+                HumidityLowThreshold = 0m,
+                HumidityHighThreshold = 10m,
+            });
+            await _dbContext.SaveChangesAsync();
+        }
     }
 }

@@ -3,6 +3,7 @@ using SilvermineNordic.Models;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System;
 
 namespace SilvermineNordic.Repository.Services
 {
@@ -28,6 +29,31 @@ namespace SilvermineNordic.Repository.Services
                 .OrderByDescending(_ => _.Id)
                 .Take(count)
                 .ToListAsync();
+        }
+
+        public async Task SeedData()
+        {
+            await _dbContext.SensorReadings.AddAsync(new SensorReading()
+            {
+                Id = 1,
+                DateTimestampUtc = DateTime.UtcNow,
+                Humidity = 88.8m,
+                InsertedDateTimestampUtc = DateTime.UtcNow,
+                ReadingDateTimestampUtc = DateTime.UtcNow,
+                TemperatureInCelcius = 10m,
+                Type = SensorReadingTypeEnum.Sensor.ToString(),
+            });
+            await _dbContext.SensorReadings.AddAsync(new SensorReading()
+            {
+                Id = 2,
+                DateTimestampUtc = DateTime.UtcNow,
+                Humidity = 77.7m,
+                InsertedDateTimestampUtc = DateTime.UtcNow,
+                ReadingDateTimestampUtc = DateTime.UtcNow,
+                TemperatureInCelcius = 15m,
+                Type = SensorReadingTypeEnum.Weather.ToString(),
+            });
+            await _dbContext.SaveChangesAsync();
         }
     }
 }

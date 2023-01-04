@@ -24,12 +24,22 @@ string snowMakingSqlConnectionString = config.GetConnectionString("SnowMakingSql
 string openWeatherApiKey = config.GetConnectionString("OpenWeatherApiForecastApiKey");
 string emailServiceConnectionString = config.GetConnectionString("EmailServiceConnectionString");
 
+var protocol = "https";
+string inMemoryDatabaseName = null;
+if (builder.Environment.IsDevelopment())
+{
+    inMemoryDatabaseName = "DevelopmentInMemoryDatabase";
+    protocol = "http";
+}
+
 builder.Services.AddSingleton<ISilvermineNordicConfiguration>(_ =>
                 new SilvermineNordicConfigurationService()
                 {
                     SqlConnectionString = snowMakingSqlConnectionString,
                     OpenWeatherApiKey = openWeatherApiKey,
                     EmailServiceConnectionString = emailServiceConnectionString,
+                    InMemoryDatabaseName = inMemoryDatabaseName,
+                    Protocol = protocol,
                 });
 
 builder.Services.AddDbContext<SilvermineNordicDbContext>();
@@ -58,7 +68,8 @@ builder.Services.AddCors(options =>
                       policy =>
                       {
                           policy.WithOrigins("https://snowmaking.silverminenordic.com",
-                                             "https://snowmakingdev.silverminenordic.com");
+                                             "https://snowmakingdev.silverminenordic.com",
+                                             "http://localhost:5290");
                       });
 });
 
@@ -71,6 +82,8 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    sensorReadingService.SeedData();
+    sensorThresholdService.SeedData();
 }
 
 //app.UseHttpsRedirection();
@@ -125,13 +138,23 @@ app.MapGet("/weatherforecast/nextzonechange", async () =>
     var weatherSensorThresholdCombinedModel = await weatherSensorThresholdCombinedService.GetWeatherSensorThresholdCombined(1);
     var thresholdTask = weatherSensorThresholdCombinedModel.Thresholds;
 
-    var lastSensorReading = weatherSensorThresholdCombinedModel.SensorReadings.Single();
-    var lastWeatherReading = weatherSensorThresholdCombinedModel.WeatherReadings.Single();
+    var lastSensorReading = weatherSensorThresholdCombinedModel.SensorReadings.SingleOrDefault();
+    var lastWeatherReading = weatherSensorThresholdCombinedModel.WeatherReadings.SingleOrDefault();
+
+    var inTheZone = false;
+    if (lastSensorReading != null)
+    {
+        inTheZone = inTheZone || InTheZoneService.IsInZone(thresholdTask, lastSensorReading.TemperatureInCelcius, lastSensorReading.Humidity);
+    }
+    if (lastWeatherReading != null)
+    {
+        inTheZone = inTheZone || InTheZoneService.IsInZone(thresholdTask, lastWeatherReading.TemperatureInCelcius, lastWeatherReading.Humidity);
+    }
+
     var nextZoneChangeDateTimeUtc = InTheZoneService.GetNextZoneChange(
-        weatherForecast, 
-        thresholdTask, 
-        InTheZoneService.IsInZone(thresholdTask, lastSensorReading.TemperatureInCelcius, lastSensorReading.Humidity) 
-            || InTheZoneService.IsInZone(thresholdTask, lastWeatherReading.TemperatureInCelcius, lastWeatherReading.Humidity));
+        weatherForecast,
+        thresholdTask,
+        inTheZone);
     return nextZoneChangeDateTimeUtc;
 }).WithName("GetNextZoneChange");
 

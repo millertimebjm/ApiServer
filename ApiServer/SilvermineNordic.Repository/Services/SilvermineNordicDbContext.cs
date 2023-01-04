@@ -9,11 +9,11 @@ namespace SilvermineNordic.Repository.Services
 
         public DbSet<User> Users { get; set; }
         public DbSet<UserOtp> UserOtps { get; set; }
-      
+
         public DbSet<Threshold> Thresholds { get; set; }
         public DbSet<CommunicationLog> CommunicationLogs { get; set; }
 
-   
+
         public DbSet<SensorReading> SensorReadings { get; set; }
         private readonly ISilvermineNordicConfiguration _configuration;
 
@@ -31,7 +31,7 @@ namespace SilvermineNordic.Repository.Services
             }
 
             var sqlConnectionString = _configuration.GetSqlConnectionString();
-            if (sqlConnectionString != null)
+            if (!string.IsNullOrWhiteSpace(sqlConnectionString))
             {
                 optionsBuilder.UseSqlServer(sqlConnectionString);
                 return;
