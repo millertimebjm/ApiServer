@@ -3,6 +3,7 @@ using SilvermineNordic.Models;
 using SilvermineNordic.Repository.Services;
 using SilvermineNordic.Common;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,24 +54,19 @@ builder.Services.AddScoped<IEmailService, AzureEmailService>();
 builder.Services.AddScoped<IRepositoryUserOtp, EntityFrameworkUserOtpService>();
 builder.Services.AddScoped<IRepositoryWeatherSensorThresholdCombined, WeatherSensorThresholdCombinedService>();
 
-var sensorReadingService = builder.Services.BuildServiceProvider().GetService<IRepositorySensorReading>();
-var sensorThresholdService = builder.Services.BuildServiceProvider().GetService<IRepositoryThreshold>();
-var weatherForecastService = builder.Services.BuildServiceProvider().GetService<IWeatherForecast>();
-var userService = builder.Services.BuildServiceProvider().GetService<IRepositoryUser>();
-var userOtpService = builder.Services.BuildServiceProvider().GetService<IRepositoryUserOtp>();
-var emailService = builder.Services.BuildServiceProvider().GetService<IEmailService>();
-var weatherSensorThresholdCombinedService = builder.Services.BuildServiceProvider().GetService<IRepositoryWeatherSensorThresholdCombined>();
-var memoryCacheService = builder.Services.BuildServiceProvider().GetRequiredService<IMemoryCache>();
+var serviceProvider = builder.Services.BuildServiceProvider();
+var sensorReadingService = serviceProvider.GetService<IRepositorySensorReading>();
+var sensorThresholdService = serviceProvider.GetService<IRepositoryThreshold>();
 
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(
-                      policy =>
-                      {
-                          policy.WithOrigins("https://snowmaking.silverminenordic.com",
-                                             "https://snowmakingdev.silverminenordic.com",
-                                             "http://localhost:5290");
-                      });
+        policy =>
+        {
+            policy.WithOrigins("https://snowmaking.silverminenordic.com",
+                                "https://snowmakingdev.silverminenordic.com",
+                                "http://localhost:5290");
+        });
 });
 
 var app = builder.Build();
@@ -88,21 +84,21 @@ if (app.Environment.IsDevelopment())
 
 //app.UseHttpsRedirection();
 
-app.MapGet("/sensorreading/", async (int count) =>
+app.MapGet("/sensorreading/", async ([FromServices] IRepositorySensorReading sensorReadingService, int count) =>
 {
     count = count > 50 ? 50 : count;
     count = count < 1 ? 1 : count;
     return await sensorReadingService.GetLastNReadingAsync(SensorReadingTypeEnum.Sensor, count);
 }).WithName("GetLastSensorReading");
 
-app.MapGet("/weatherreading/", async (int count) =>
+app.MapGet("/weatherreading/", async ([FromServices] IRepositorySensorReading sensorReadingService, int count) =>
 {
     count = count > 50 ? 50 : count;
     count = count < 1 ? 1 : count;
     return await sensorReadingService.GetLastNReadingAsync(SensorReadingTypeEnum.Weather, count);
 }).WithName("GetLastWeatherReading");
 
-app.MapGet("/weatherforecast", async () =>
+app.MapGet("/weatherforecast", async ([FromServices] IMemoryCache memoryCacheService, [FromServices] IWeatherForecast weatherForecastService) =>
 {
     var weatherForecast = memoryCacheService.Get<IEnumerable<WeatherModel>>("WeatherForecast");
     if (weatherForecast == null)
@@ -113,13 +109,13 @@ app.MapGet("/weatherforecast", async () =>
     return weatherForecast;
 }).WithName("GetWeatherForecast");
 
-app.MapGet("thresholds", async () =>
+app.MapGet("thresholds", async ([FromServices] IRepositoryThreshold sensorThresholdService) =>
 {
     var thresholds = await sensorThresholdService.GetThresholds();
     return thresholds;
 });
 
-app.MapGet("weathersensorthreshold", async (int count) =>
+app.MapGet("weathersensorthreshold", async ([FromServices] IRepositoryWeatherSensorThresholdCombined weatherSensorThresholdCombinedService, int count) =>
 {
     count = count > 50 ? 50 : count;
     count = count < 1 ? 1 : count;
@@ -127,7 +123,10 @@ app.MapGet("weathersensorthreshold", async (int count) =>
     return weatherSensorThresholdCombinedModel;
 });
 
-app.MapGet("/weatherforecast/nextzonechange", async () =>
+app.MapGet("/weatherforecast/nextzonechange", async (
+    [FromServices] IMemoryCache memoryCacheService,
+    [FromServices] IWeatherForecast weatherForecastService,
+    [FromServices] IRepositoryWeatherSensorThresholdCombined weatherSensorThresholdCombinedService) =>
 {
     var weatherForecast = memoryCacheService.Get<IEnumerable<WeatherModel>>("WeatherForecast");
     if (weatherForecast == null)
@@ -158,7 +157,11 @@ app.MapGet("/weatherforecast/nextzonechange", async () =>
     return nextZoneChangeDateTimeUtc;
 }).WithName("GetNextZoneChange");
 
-app.MapPost("loginattempt", async ([Microsoft.AspNetCore.Mvc.FromBody] string login) =>
+app.MapPost("loginattempt", async (
+    [FromServices] IRepositoryUser userService,
+    [FromServices] IRepositoryUserOtp userOtpService,
+    [FromServices] IEmailService emailService,
+    [FromBody] string login) =>
 {
     try
     {
@@ -171,28 +174,28 @@ app.MapPost("loginattempt", async ([Microsoft.AspNetCore.Mvc.FromBody] string lo
         }
         return true;
     }
-    catch (Exception ex)
+    catch
     {
         return false;
     }
 });
 
-app.MapGet("loginotp", async (string otp) =>
+app.MapGet("loginotp", async ([FromServices] IRepositoryUserOtp userOtpService, string otp) =>
 {
     if (Guid.TryParse(otp, out Guid otpGuid))
     {
         return await userOtpService.GetUserOtpAsync(otpGuid);
     }
-    return (UserOtp)null;
+    return (UserOtp?)null;
 });
 
-app.MapGet("loginauth", async (string authKey) =>
+app.MapGet("loginauth", async ([FromServices] IRepositoryUserOtp userOtpService, string authKey) =>
 {
     if (Guid.TryParse(authKey, out Guid authKeyGuid))
     {
         return await userOtpService.GetUserOtpByAuthKeyAsync(authKeyGuid);
     }
-    return (User)null;
+    return (User?)null;
 });
 
 app.Run();
